@@ -1,0 +1,206 @@
+###### PLANTILLA GLOBAL PARA APLICACION GESTION CLIENTES ######
+#RECOGE TODOS LOS YML PARA CADA OBJETO DE LA APLICACIONEN UN UNICO YML QUE ES LA PLANTILLA
+apiVersion: v1
+kind: Template
+###### ETIQUETAS ######
+labels:
+  template: Webserverapp
+###### MENSAJE ######
+message: Creating the Webserver Application
+###### METADATOS ######
+metadata:
+  annotations:
+    description: Webserver template
+    openshift.io/display-name: Webserver ${APPLICATION_NAME}
+    openshift.io/provider-display-name: Red Hat, Inc.
+    tags: ${APPLICATION_TAG}
+    template.openshift.io/documentation-url: https://access.redhat.com/documentation/en/
+    template.openshift.io/long-description: This template defines resources needed for a sftp server
+    template.openshift.io/support-url: https://access.redhat.com
+  creationTimestamp: null
+  name: ${APPLICATION_NAME}
+###### OBJETOS DE LA PLANTILLA ######
+#CADA OBJETO PODRIA PROCESARSE DE MANERA INDIVIDUAL EN UN YML DIFERENTE, PERO ESE ES EL OBJETIVO DE LA PLANTILLA,
+#RECOGER TODOS LOS OBJETOS NECESARIOS DE CADA APLICACION (IMAGE, BUILD, DEPLOY, SERVICE, ROUTE,...) EN UN UNICO YML
+objects:
+  ###### SERVICIO ######
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: Application Port
+    labels:
+    name: ${APPLICATION_NAME}
+  spec:
+    ports:
+    - name: ${APPLICATION_PORT_CLIENTES}-tcp
+      port: ${{APPLICATION_PORT_CLIENTES}}
+      protocol: TCP
+      targetPort: ${{APPLICATION_PORT_CLIENTES}}
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+  ###### IMAGEN ######
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  ###### BUILD ######
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      contextDir: ${CONTEXT_DIR}
+      git:
+        ref: ${SOURCE_REPOSITORY_REF}
+        uri: ${SOURCE_REPOSITORY_URL}
+        httpsProxy: ${SOURCE_PROXY}
+      sourceSecret:
+        name: ${SOURCE_SECRET}
+      type: Git
+    strategy:
+      sourceStrategy:
+        forcePull: true
+        from:
+          kind: ImageStreamTag
+          name: s2i-core-centos7:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+      type: Source
+    triggers:
+    - github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      type: GitHub
+    - generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+      type: Generic
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+    strategy:
+      dockerStrategy:
+        env:
+          - name: GIT_SSL_NO_VERIFY
+            value: 'true'
+  ###### DEPLOY ######
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}
+        name: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - env: []
+          image: ${APPLICATION_NAME}
+          imagePullPolicy: Always
+          name: ${APPLICATION_NAME}
+          resources:
+            limits:
+              cpu: ${{CPU_LIMIT}}
+              memory:  ${RAM_LIMIT}
+            requests:
+              cpu: ${{CPU_LIMIT}}
+              memory: ${RAM_LIMIT}
+          ports:
+          - containerPort: ${{APPLICATION_PORT_CLIENTES}}
+            protocol: TCP
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+###### PARAMETROS DE LA PLANTILLA ######
+#DEBEMOS ASIGNARLOS CON '-p' AL EJECUTAR LA PLANTILLA CON 'oc process -f' Y APLICARLOS A LA MISMA CON 'oc apply -f-'
+parameters:
+- description: The name for the application.
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: defaultserver
+- description: Openshift Application tag
+  displayName: Openshift Application tag
+  name: APPLICATION_TAG
+  required: true
+  value: defaultwebserver
+- description: Reverse proxy port to BackendApp
+  displayName: Reverse proxy port to BackendApp
+  name: APPLICATION_PORT_CLIENTES
+  required: true
+  value: '8448'
+- description: POD CPU Limit count by core or milecores
+  displayName: POD CPU Limit count by core or milecores
+  name: CPU_LIMIT
+  required: false
+  value: '1'
+- description: POD MEMORY RAM Limit
+  displayName: POD MEMORY RAM Limit
+  name: RAM_LIMIT
+  required: false
+  value: '1G'
+- description: Git source URI for application
+  displayName: Git Repository URL
+  name: SOURCE_REPOSITORY_URL
+  required: true
+- description: Source proxy
+  displayName: Source Proxy
+  name: SOURCE_PROXY
+  required: false
+- description: Git branch/tag reference
+  displayName: Git Reference
+  name: SOURCE_REPOSITORY_REF
+  value: master
+- description: Path within Git project to build; empty for root project directory.
+  displayName: Context Directory
+  name: CONTEXT_DIR
+  value: undertow-servlet
+- description: Secret name of the Github connection credentials
+  displayName: Secret for the Github connection
+  name: SOURCE_SECRET
+  value: github-user
+- description: GitHub trigger secret
+  displayName: Github Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+  required: true
+- description: Generic build trigger secret
+  displayName: Generic Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+  required: true
+- description: Namespace in which the ImageStreams for Red Hat Middleware images are
+    installed. These ImageStreams are normally installed in the openshift namespace.
+    You should only need to modify this if you've installed the ImageStreams in a
+    different namespace/project.
+  displayName: ImageStream Namespace
+  name: IMAGE_STREAM_NAMESPACE
+  required: true
+  value: openshift

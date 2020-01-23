@@ -1,0 +1,255 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: ClientesApp
+message: Creating the Clientes Application ${APPLICATION_NAME}
+metadata:
+  annotations:
+    description: Clientes ${APPLICATION_NAME}
+    openshift.io/display-name: SmartwifiApp ${APPLICATION_NAME}
+    openshift.io/provider-display-name: Red Hat, Inc.
+    tags: ${APPLICATION_TAG}
+    template.openshift.io/documentation-url: https://access.redhat.com/documentation/en/
+    template.openshift.io/long-description: This template defines resources needed for a sftp server
+    template.openshift.io/support-url: https://access.redhat.com
+  creationTimestamp: null
+  name: ${APPLICATION_NAME}
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: Application Port
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    ports:
+    - port: ${{APPLICATION_PORT}}
+      targetPort: ${{APPLICATION_PORT}}
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      description: Route for application's https service.
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    host: ${HOSTNAME_HTTP}
+    to:
+      name: ${APPLICATION_NAME}
+    port:
+      targetPort: ${NGINX_PORT}-tcp
+    tls:
+      termination: edge
+    to:
+      kind: Service
+      name: ${NGINX_SERVICE_NAME}
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+      - conditions:
+          - lastTransitionTime: null
+            status: 'True'
+            type: Admitted
+        host: ${HOSTNAME_HTTP}
+        routerName: router
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      contextDir: ${CONTEXT_DIR}
+      git:
+        ref: ${SOURCE_REPOSITORY_REF}
+        uri: ${SOURCE_REPOSITORY_URL}
+        httpsProxy: ${SOURCE_PROXY}
+      sourceSecret:
+        name: ${SOURCE_SECRET}
+      type: Git
+    strategy:
+      sourceStrategy:
+        forcePull: true
+        from:
+          kind: ImageStreamTag
+          name: s2i-core-centos7:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+      type: Source
+    triggers:
+    - github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      type: GitHub
+    - generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+      type: Generic
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+    strategy:
+      dockerStrategy:
+        env:
+          - name: GIT_SSL_NO_VERIFY
+            value: 'true'
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}
+        name: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - env: 
+          - name: Entorno
+            value: ${BACKGROUND}
+          - name: SW_VERSION
+            value: ${{SW_VERSION}}
+          image: ${APPLICATION_NAME}
+          imagePullPolicy: Always
+          name: ${APPLICATION_NAME}
+          volumeMounts:
+              # name must match the volume name below
+              - name: secret-volume
+                mountPath: /etc/secret-volume
+                readOnly: true
+        resources:
+          limits:
+            cpu: ${{CPU_LIMIT}}
+            memory:  ${RAM_LIMIT}
+          requests:
+            cpu: ${{CPU_LIMIT}}
+            memory: ${RAM_LIMIT}
+        ports:
+         - containerPort: ${APPLICATION_PORT}
+           name: ${APPLICATION_NAME}
+           protocol: TCP
+        volumes:
+          - name: secret-volume
+            secret:
+              secretName: encrypt-key
+#        hostAliases:                            # MySQL IP Address
+#          - hostnames:                          # Change these values to those of your environment
+#              - esjc-nfhb-mn01s
+#            ip: 192.168.69.34
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+parameters:
+- description: The name for the application.
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: defaultserver
+- description: 'Custom hostname for http service route.  Leave blank for default hostname,
+    e.g.: <application-name>-<project>.<default-domain-suffix>'
+  displayName: Custom http Route Hostname
+  name: HOSTNAME_HTTP
+- description: Nginx Service Name
+  displayName: Nginx Service Name
+  name: NGINX_SERVICE_NAME
+  required: true
+- description: Custom application service Port
+  displayName: Service Port
+  name: APPLICATION_PORT
+  required: true
+- description: Custom Nginx application redirect Port
+  displayName: Nginx Port for the reverse proxy
+  name: NGINX_PORT
+  required: true
+- description: Entorno
+  displayName: Entorno
+  name: BACKGROUND
+  required: true
+- description: POD CPU Limit count by core or milecores
+  displayName: POD CPU Limit count by core or milecores
+  name: CPU_LIMIT
+  required: false
+  value: '1'
+- description: POD MEMORY RAM Limit 
+  displayName: POD MEMORY RAM Limit
+  name: RAM_LIMIT
+  required: false
+  value: '1G'
+- description: Git source URI for application
+  displayName: Git Repository URL
+  name: SOURCE_REPOSITORY_URL
+  required: true
+- description: Source proxy
+  displayName: Source Proxy
+  name: SOURCE_PROXY
+  required: false
+- description: Git branch/tag reference
+  displayName: Git Reference
+  name: SOURCE_REPOSITORY_REF
+  value: test_encrypt_file
+- description: Path within Git project to build; empty for root project directory.
+  displayName: Context Directory
+  name: CONTEXT_DIR
+  value: undertow-servlet
+- description: Secret name of the Github connection credentials
+  displayName: Secret for the Github connection
+  name: SOURCE_SECRET
+  value: github-user
+- description: GitHub trigger secret
+  displayName: Github Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+  required: true
+- description: Generic build trigger secret
+  displayName: Generic Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+  required: true
+- description: Volume Name
+  displayName: Volume Name
+  name: VOLUME_NAME
+- description: Namespace in which the ImageStreams for Red Hat Middleware images are
+    installed. These ImageStreams are normally installed in the openshift namespace.
+    You should only need to modify this if you've installed the ImageStreams in a
+    different namespace/project.
+  displayName: ImageStream Namespace
+  name: IMAGE_STREAM_NAMESPACE
+  required: true
+  value: openshift
+- description: Software Version
+  displayName: Software Version
+  name: SW_VERSION
+  required: true
