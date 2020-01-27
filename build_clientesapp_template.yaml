@@ -221,7 +221,7 @@ parameters:
 - description: Path within Git project to build; empty for root project directory.
   displayName: Context Directory
   name: CONTEXT_DIR
-  value: undertow-servlet
+  value:
 - description: Secret name of the Github connection credentials
   displayName: Secret for the Github connection
   name: SOURCE_SECRET

@@ -6,7 +6,9 @@ for example services, build configurations, and deployment configurations. A tem
 define a set of labels to apply to every object defined in the template.
 
 ## DEPLOYMENT
+CREAR EL github-user con la clave git_rsa.pub sacada de hacer en nuestra maquina ssh-keygen y añadirlo a los settings de nuestra cuenta de git
 
+CREAR LA encrypt-key como un secret en openshift y montarla en /etc/secret-volume/
 ## A) PRETASK
  - SECRETS.
    Secret objects let you store and manage sensitive information, such as passwords, OAuth tokens, and ssh keys.
