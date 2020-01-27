@@ -20,9 +20,9 @@ define a set of labels to apply to every object defined in the template.
 
 ### CREATE WEBSERVER NGINX OPENSHIFT:
 
-```sh
+```
 oc process -f build_webserver_template.yaml -p APPLICATION_NAME=nginx-gestion \
--p SOURCE_REPOSITORY_URL=https://github.com/Telefonica/smartwifi_osh_nginx.git \
+-p SOURCE_REPOSITORY_URL=https://github.com/JKGzenna/Nginx_openshift.git \
 -p CONTEXT_DIR='{ ENVIRONMENT }' -p APPLICATION_PORT_CLIENTES=8448 \
 -p SOURCE_SECRET={ DEPLOYMENT_USER } -p APPLICATION_TAG=v1.0 | oc apply -f-
 
@@ -30,9 +30,9 @@ oc process -f build_webserver_template.yaml -p APPLICATION_NAME=nginx-gestion \
 
 ### CREATE GESTION CLIENTES OPENSHIFT:
 
-```sh
+```
 oc process -f build_clientesapp_template.yaml -p APPLICATION_NAME=clientesapp \
--p SOURCE_REPOSITORY_URL=https://github.com/Telefonica/smartwifi_osh_backendapp.git \
+-p SOURCE_REPOSITORY_URL=https://github.com/JKGzenna/GestionClientes_openshift.git \
 -p CONTEXT_DIR='{ SOFTWARE_VERSION }' -p SOURCE_SECRET={ DEPLOYMENT_USER } -p APPLICATION_PORT=9000 \
 -p HOSTNAME_HTTP={ URL_SERVICE } -p BACKGROUND={ ENVIRONMENT } -p SW_VERSION={ SOFTWARE_VERSION } \
 -p NGINX_SERVICE_NAME=nginx-gestion -p NGINX_PORT=8448 | oc apply -f-

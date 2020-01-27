@@ -195,7 +195,7 @@ parameters:
 - description: Entorno
   displayName: Entorno
   name: BACKGROUND
-  required: true
+  required: false
 - description: POD CPU Limit count by core or milecores
   displayName: POD CPU Limit count by core or milecores
   name: CPU_LIMIT
@@ -217,7 +217,7 @@ parameters:
 - description: Git branch/tag reference
   displayName: Git Reference
   name: SOURCE_REPOSITORY_REF
-  value: test_encrypt_file
+  value: master
 - description: Path within Git project to build; empty for root project directory.
   displayName: Context Directory
   name: CONTEXT_DIR
@@ -252,4 +252,4 @@ parameters:
 - description: Software Version
   displayName: Software Version
   name: SW_VERSION
-  required: true
+  required: false
