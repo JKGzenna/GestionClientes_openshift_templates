@@ -2,19 +2,16 @@ apiVersion: v1
 kind: Template
 labels:
   template: generic-application
- # xpaas: 1.0
 message: Creating the Application ${APPLICATION_NAME}
 metadata:
   annotations:
     description: general-application
-    #iconClass: icon-rh-openjdk
     openshift.io/display-name: General Application with one port
     openshift.io/provider-display-name: Red Hat, Inc.
     tags: ${APPLICATION_TAG}
     template.openshift.io/documentation-url: https://access.redhat.com/documentation/en/
     template.openshift.io/long-description: This template defines resources needed for a sftp server
     template.openshift.io/support-url: https://access.redhat.com
- #   version: 1.0
   creationTimestamp: null
   name: ${APPLICATION_NAME}
 objects:

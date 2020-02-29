@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Template
 labels:
   template: ClientesApp
-message: Creating the Clientes Application ${APPLICATION_NAME}
+message: Creating the Application ${APPLICATION_NAME}
 metadata:
   annotations:
     description: Clientes ${APPLICATION_NAME}
