@@ -1,0 +1,191 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: generic-application
+ # xpaas: 1.0
+message: Creating the Application ${APPLICATION_NAME}
+metadata:
+  annotations:
+    description: general-application
+    #iconClass: icon-rh-openjdk
+    openshift.io/display-name: General Application with one port
+    openshift.io/provider-display-name: Red Hat, Inc.
+    tags: ${APPLICATION_TAG}
+    template.openshift.io/documentation-url: https://access.redhat.com/documentation/en/
+    template.openshift.io/long-description: This template defines resources needed for a sftp server
+    template.openshift.io/support-url: https://access.redhat.com
+ #   version: 1.0
+  creationTimestamp: null
+  name: ${APPLICATION_NAME}
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: The application's port.
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+#    externalIPs: #External ip for SFTP server
+#      - ${{EXT_IP}}
+    ports:
+      - port: ${{APPLICATION_PORT}}
+        targetPort: ${{APPLICATION_PORT}}
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      contextDir: ${CONTEXT_DIR}
+      git:
+        ref: ${SOURCE_REPOSITORY_REF}
+        uri: ${SOURCE_REPOSITORY_URL}
+        httpsProxy: ${SOURCE_PROXY}
+      sourceSecret:
+        name: ${SOURCE_SECRET}
+      type: Git
+    strategy:
+      sourceStrategy:
+        forcePull: true
+        from:
+          kind: ImageStreamTag
+          name: s2i-core-centos7:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+      type: Source
+    triggers:
+    - github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      type: GitHub
+    - generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+      type: Generic
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+    strategy:
+      dockerStrategy:
+        env:
+          - name: GIT_SSL_NO_VERIFY
+            value: 'true'
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}
+        name: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - env: []
+          image: ${APPLICATION_NAME}
+          imagePullPolicy: Always
+          name: ${APPLICATION_NAME}
+          ports:
+          - containerPort: ${{APPLICATION_PORT}}
+            name: ${APPLICATION_NAME}
+            protocol: TCP
+            resources:
+               limits:
+                  cpu: ${{RESOURCE_LIMIT_CPU}}
+                  memory: '1024Mi' 
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+parameters:
+- description: The name for the application.
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: defaultapp
+- description: Tag for your application
+  displayName: Tag for your application
+  name: APPLICATION_TAG
+  required: true
+- description: 'Custom hostname for http service route.  Leave blank for default hostname,
+    e.g.: <application-name>-<project>.<default-domain-suffix>'
+  displayName: Custom http Route Hostname
+  name: HOSTNAME_HTTP
+- description: Custom application service Port
+  displayName: Service Port
+  name: APPLICATION_PORT
+  required: true
+- description: Git source URI for application
+  displayName: Git Repository URL
+  name: SOURCE_REPOSITORY_URL
+  required: true
+  value: https://github.com/jboss-openshift/openshift-quickstarts
+- description: Git branch/tag reference
+  displayName: Git Reference
+  name: SOURCE_REPOSITORY_REF
+  value: master
+- description: Path within Git project to build; empty for root project directory.
+  displayName: Context Directory
+  name: CONTEXT_DIR
+  value: undertow-servlet
+- description: Source proxy https
+  displayName: Source proxy https 
+  name: SOURCE_PROXY
+  required: false
+- description: Secret name of the Github connection credentials
+  displayName: Secret for the Github connection
+  name: SOURCE_SECRET
+  value: github-user
+- description: GitHub trigger secret
+  displayName: Github Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+  required: true
+- description: Generic build trigger secret
+  displayName: Generic Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+  required: true
+- description: Namespace in which the ImageStreams for Red Hat Middleware images are
+    installed. These ImageStreams are normally installed in the openshift namespace.
+    You should only need to modify this if you've installed the ImageStreams in a
+    different namespace/project.
+  displayName: ImageStream Namespace
+  name: IMAGE_STREAM_NAMESPACE
+  required: true
+  value: openshift
+- description: External IPs for SFTP Server
+  displayName: External IPs
+  name: EXT_IPS
+  required: false
